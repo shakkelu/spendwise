@@ -45,8 +45,9 @@ The repository currently contains product and engineering documentation. Do not 
 
 ## 6. Financial Correctness
 
-- Use integer minor units or another explicitly justified precise monetary representation.
-- Record currency explicitly.
+- Use integer minor units with currency-specific precision.
+- Enforce one currency per account for the MVP; record currency explicitly and perform no currency conversion.
+- Follow the approved financial rules in `ARCHITECTURE.md`, section 5 (“Financial Data Rules”). Do not silently resolve its open questions during implementation.
 - Distinguish actual transactions from expected income, upcoming expenses, and projections.
 - Make forecast assumptions explicit.
 - Never represent expected income as guaranteed funds.

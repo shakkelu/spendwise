@@ -27,11 +27,18 @@ Instead of focusing only on past spending, Spendwise aims to make irregular inco
 
 ```text
 apps/
-  mobile/       # Mobile application
+  mobile/                # Empty placeholder for the planned mobile app
 services/
-  api/          # Backend API
-docs/            # Project documentation
-.github/         # GitHub workflows and templates
+  api/                   # Empty placeholder for the planned backend API
+docs/                    # Empty placeholder for future documentation
+.github/                 # Empty placeholder for future workflows/templates
+README.md                # Project overview
+AGENTS.md                # Development instructions
+PROJECT_PLAN.md          # Product plan
+ARCHITECTURE.md          # Planned architecture and financial rules
+ENGINEERING_STANDARD.md  # Engineering standards
+LICENSE                  # MIT license
+.gitignore               # Ignore rules
 ```
 
 ## Project Documentation

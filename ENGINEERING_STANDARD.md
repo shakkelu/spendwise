@@ -24,15 +24,18 @@ These standards apply to all application code, tests, configuration, and documen
 - Protect private endpoints with authentication.
 - Enforce ownership checks on every user-owned resource.
 - Never trust a client-supplied user ID to establish identity.
-- Never return passwords, password hashes, tokens, or internal secrets in API responses.
+- Never expose passwords, password hashes, server secrets, or authentication/session credentials accidentally in API responses, errors, or logs.
+- Intentional authentication/session credential issuance is permitted only if required by the authentication mechanism selected later, through its documented secure flow, to the intended client, and subject to its documented security requirements. This rule does not select an authentication mechanism or authorize credential exposure elsewhere.
 - Test unauthorized and cross-user access attempts.
 
 ## 5. Financial Correctness
-- Represent monetary amounts with integer minor units or another explicitly justified precise representation.
+- Represent monetary values as integer minor units using currency-specific precision.
 - Never use ordinary floating-point arithmetic for authoritative monetary calculations.
-- Record currency explicitly and prevent accidental mixing of currencies.
+- Enforce one currency per account for the MVP, record currency explicitly, and perform no currency conversion.
+- Use positive transaction amounts with an explicit income or expense type.
+- Follow the approved opening-balance and forecast rules in `ARCHITECTURE.md`, section 5 ("Financial Data Rules"). Resolve its relevant open questions before implementing the affected behavior.
 - Keep actual, expected, and projected values distinct.
-- Test rounding, boundary conditions, and forecast assumptions.
+- Test currency precision, numeric and date boundaries, opening-balance double counting, and forecast assumptions. Test monetary validation, overdue-income handling, and payment transitions against their rules once those rules are decided.
 
 ## 6. Error Handling
 - Return consistent, documented API error responses.

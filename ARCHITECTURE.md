@@ -2,7 +2,7 @@
 
 ## 1. Architecture Overview
 
-Spendwise uses a mobile client, a backend API, and a database.
+This document describes Spendwise’s planned system and required behavior, not existing implementation. The planned system consists of a mobile client, a backend API, and a MongoDB database. The responsibilities and request flow below describe that planned system.
 
 The mobile app handles the user interface and user interactions. The backend handles authentication, authorization, business rules, financial calculations, and data validation. MongoDB stores application data.
 
@@ -68,12 +68,30 @@ The mobile app must not connect directly to MongoDB.
 
 ## 5. Financial Data Rules
 
-- Store monetary amounts using a representation that avoids binary floating-point rounding errors, such as integer minor units.
-- Record the currency explicitly.
-- Use consistent rules for transaction dates and time zones.
-- Keep recorded balances and projected balances distinguishable.
-- Document how expected income, expenses, and forecast dates affect calculations.
-- Do not treat uncertain income as guaranteed.
+### Approved MVP Rules
+
+- Use one currency per account. Currency conversion is outside the MVP.
+- Represent monetary values as integer minor units using currency-specific precision; do not assume every currency has two decimal places.
+- Record currency explicitly and keep account financial records consistent with that currency.
+- Represent transaction amounts as positive values with an explicit income or expense type.
+- The user provides an opening balance and its effective date.
+- Recorded transactions must not be counted twice relative to the opening balance. Do not apply a transaction again if its effect is already included in that balance.
+- Expected income affects the forecast on its scheduled date and remains clearly labeled as projected, not guaranteed funds.
+- Keep recorded balances, expected income, upcoming expenses, and projected balances distinguishable.
+
+### Open Financial Questions
+
+Resolve these questions before implementing the affected behavior:
+
+- Monetary validation: Which currencies are supported? What numeric limits apply? How is input with excess precision handled, and what rounding rules, if any, apply? May an account's currency change after financial records exist?
+- Opening-balance boundary: Does the balance apply at the start or end of its effective date? How are transactions on that date or earlier handled without double counting? How do later edits to the opening balance affect calculations?
+- Dates and timezones: Which fields are calendar dates and which are timestamps? Which timezone governs monthly summaries and forecasts? Which date boundaries are inclusive?
+- Forecast horizon: What period is shown, what is its starting balance and date, and is the horizon fixed or selectable?
+- Overdue expected income: When a scheduled date passes without receipt, how does the item affect the current forecast? Is rescheduling explicit or automatic?
+- Payment transitions: How is an expected payment linked to a recorded income transaction? Which date records receipt, and how does the transition prevent counting the payment as both expected and received?
+- Upcoming expenses: Which due-date and settlement rules determine forecast inclusion and prevent counting an expense again after it becomes a recorded transaction?
+
+These questions do not authorize additional MVP features. Do not assume answers during implementation.
 
 ## 6. Security Principles
 
@@ -101,3 +119,11 @@ The mobile app must not connect directly to MongoDB.
 - Production database access must be restricted.
 - Public source code does not mean production credentials or private user data should be public.
 
+## 9. Other Open Decisions
+
+- Before authentication work: Select and document the authentication/session mechanism and its security requirements, including any credential issuance, expiry, renewal, revocation, secure mobile storage, and logout behavior. No mechanism is selected by this document.
+- With initial scaffolding and integration: Choose runtime and package-manager versions, workspace setup, local database setup, environment configuration, and mobile-to-API connectivity. Clarify local development transport; production HTTPS remains required.
+- With the relevant implementation: Choose testing tools, isolated database-test setup, and repeatable formatting, linting, type-checking, and test commands. Define API response/error conventions and handling of repeated financial submissions.
+- Before accepting real financial data: Document mobile caching and logout cleanup, data retention/deletion, protected backups, and restore verification. Identify targeted ignore rules when credential, signing, or database-export tooling is selected.
+
+Hosting, release automation, and automated mobile end-to-end tooling can be decided later.

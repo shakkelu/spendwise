@@ -25,11 +25,12 @@ Spendwise aims to make actual finances and projected cash flow easy to understan
 - Summarize income and expenses for the selected month.
 - Show upcoming financial commitments.
 - Clearly distinguish recorded figures from estimates.
+- Accept a user-provided opening balance and effective date; avoid counting recorded transactions already reflected in that balance.
 
 ### Transaction Management
 - Add, edit, and delete transactions.
 - Categorize income and expenses.
-- Record transaction dates, amounts, and descriptions.
+- Record transaction dates, positive amounts, an explicit income/expense type, and descriptions.
 
 ### Expected Income and Upcoming Expenses
 - Record expected client payments.
@@ -42,12 +43,15 @@ Spendwise aims to make actual finances and projected cash flow easy to understan
 - Include the starting balance, expected income, and upcoming expenses.
 - Clearly label forecast figures as estimates, not guaranteed outcomes.
 - Make the assumptions behind projected balances understandable.
+- Apply expected income on its scheduled date while keeping it labeled as projected, not guaranteed.
 
 ### User Accounts and Data Security
 - Support individual user accounts.
 - Enforce authorization on the backend for every user-owned resource.
 - Validate incoming data on the server.
 - Prevent users from accessing another user's financial records.
+
+MVP financial records use one currency per account, with no currency conversion. Monetary values use integer minor units with currency-specific precision. See `ARCHITECTURE.md`, section 5 (“Financial Data Rules”), for approved rules and open financial questions.
 
 ## 5. Out of Scope for the MVP
 
