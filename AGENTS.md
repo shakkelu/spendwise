@@ -15,7 +15,7 @@ The engineering standards are mandatory for all implementation work.
 
 Spendwise is in early development.
 
-The repository currently contains product and engineering documentation. Do not assume that the mobile app, backend, authentication, database models, or tests have been implemented.
+The repository includes an Expo mobile MVP, Express/MongoDB backend, authentication/session and financial-domain implementations, and automated tests. External email, deployment, device, backup/restore and security release gates remain open; see README.md and PROJECT_PLAN.md. Do not claim production readiness from local tests alone.
 
 ## 3. Work Incrementally
 
@@ -66,6 +66,7 @@ For each implementation task:
 ## 8. Explain Changes
 
 Provide a concise summary of:
+
 - What changed and why.
 - Important design or security decisions.
 - Commands and tests run.

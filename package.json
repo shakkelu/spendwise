@@ -1,0 +1,39 @@
+{
+  "name": "spendwise",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "packageManager": "npm@11.19.1",
+  "engines": {
+    "node": "24.22.1",
+    "npm": "11.19.1"
+  },
+  "workspaces": [
+    "apps/mobile",
+    "services/api"
+  ],
+  "scripts": {
+    "format:check": "prettier --check package.json eslint.config.mjs .prettierrc.json compose.yaml \"apps/mobile/**/*.{ts,tsx,json}\" \"services/api/**/*.{ts,json,js,mjs}\"",
+    "dev:api": "npm run dev --workspace=@spendwise/api",
+    "build:api": "npm run build --workspace=@spendwise/api",
+    "start:api": "npm run start --workspace=@spendwise/api",
+    "typecheck:api": "npm run typecheck --workspace=@spendwise/api",
+    "test:api": "npm run test --workspace=@spendwise/api",
+    "db:setup": "node services/api/setup-local-db.mjs",
+    "db:up": "docker compose --env-file .env.mongo up -d --wait mongo-dev",
+    "db:test:up": "docker compose --env-file .env.mongo --profile test up -d --wait mongo-test",
+    "db:stop": "docker compose --env-file .env.mongo --profile test stop",
+    "test:db": "npm run test:db --workspace=@spendwise/api",
+    "lint": "eslint .",
+    "test:mobile": "npm run test --workspace=@spendwise/mobile",
+    "typecheck": "npm run typecheck:api && npm run typecheck --workspace=@spendwise/mobile",
+    "test": "npm run test:api && npm run test:mobile",
+    "verify": "npm run lint && npm run typecheck && npm test && npm run format:check"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.13.0",
+    "prettier": "3.9.10",
+    "typescript-eslint": "8.72.1"
+  }
+}

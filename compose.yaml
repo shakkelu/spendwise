@@ -1,0 +1,58 @@
+name: spendwise-local
+services:
+  mongo-dev:
+    image: mongo:8.0.34-noble@sha256:c2d54fddfb3738fb27fe117f51692e3f44e640a3e7aeb8da3937ee9cd33a650b
+    ports:
+      - "127.0.0.1:27117:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_DEV_ADMIN_PASSWORD:?Run db:setup first}
+      MONGO_INITDB_DATABASE: spendwise_dev
+      APP_USER: spendwise_dev
+      APP_PASSWORD: ${MONGO_DEV_PASSWORD:?Run db:setup first}
+    volumes:
+      - mongo-dev-data:/data/db
+      - ./services/api/mongo-init.js:/docker-entrypoint-initdb.d/app.js:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--quiet",
+          "--eval",
+          "quit(db.adminCommand({ping:1}).ok ? 0 : 1)",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+  mongo-test:
+    image: mongo:8.0.34-noble@sha256:c2d54fddfb3738fb27fe117f51692e3f44e640a3e7aeb8da3937ee9cd33a650b
+    profiles: [test]
+    ports:
+      - "127.0.0.1:27118:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_TEST_ADMIN_PASSWORD:?Run db:setup first}
+      MONGO_INITDB_DATABASE: spendwise_test
+      APP_USER: spendwise_test
+      APP_PASSWORD: ${MONGO_TEST_PASSWORD:?Run db:setup first}
+    volumes:
+      - mongo-test-data:/data/db
+      - ./services/api/mongo-init.js:/docker-entrypoint-initdb.d/app.js:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--quiet",
+          "--eval",
+          "quit(db.adminCommand({ping:1}).ok ? 0 : 1)",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+volumes:
+  mongo-dev-data:
+  mongo-test-data:

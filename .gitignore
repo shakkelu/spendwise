@@ -43,3 +43,7 @@ build/
 # Temporary files
 .tmp/
 temp/
+
+# Expo continuous native generation (app configuration is the source of truth)
+/apps/mobile/android/
+/apps/mobile/ios/
