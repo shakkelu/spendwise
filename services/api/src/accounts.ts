@@ -13,6 +13,8 @@ export interface User {
   verified: boolean;
   authVersion: number;
   ledger: Ledger | null;
+  transferHash?: string;
+  transferReceipt?: string;
   verifyHash?: string;
   verifyUntil?: Date;
   resetHash?: string;
@@ -107,7 +109,12 @@ export async function accounts(db: Db, deliver: Deliver) {
     notify(user.email, purpose, token);
   }
   return {
-    async register(address: unknown, secret: unknown) {
+    async register(address: unknown, secret: unknown, transferKey?: unknown) {
+      if (
+        transferKey !== undefined &&
+        (typeof transferKey !== "string" || !/^[a-f0-9]{64}$/.test(transferKey))
+      )
+        throw new ApiError(400, "Invalid transfer key.");
       const mail = email(address),
         plain = password(secret);
       const passwordHash = await bounded(() => argon2.hash(plain, hashOptions));
@@ -118,6 +125,9 @@ export async function accounts(db: Db, deliver: Deliver) {
         verified: false,
         authVersion: 0,
         ledger: null,
+        ...(typeof transferKey === "string"
+          ? { transferHash: tokenHash(transferKey) }
+          : {}),
       };
       const token = newToken();
       user.verifyHash = tokenHash(token);
@@ -140,9 +150,16 @@ export async function accounts(db: Db, deliver: Deliver) {
                 passwordHash,
                 verifyHash: user.verifyHash,
                 verifyUntil: user.verifyUntil,
+                ...(user.transferHash
+                  ? { transferHash: user.transferHash }
+                  : {}),
               },
               $inc: { authVersion: 1 },
-              $unset: { resetHash: "", resetUntil: "" },
+              $unset: {
+                resetHash: "",
+                resetUntil: "",
+                ...(!user.transferHash ? { transferHash: "" as const } : {}),
+              },
             },
           );
           if (updated.modifiedCount) notify(mail, "verify", token);

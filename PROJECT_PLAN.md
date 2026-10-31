@@ -51,7 +51,9 @@ Spendwise aims to make actual finances and projected cash flow easy to understan
 
 ### User Accounts and Data Security
 
-- Support individual user accounts.
+- Support device-only use without registration and optional individual cloud accounts.
+- Transfer local records only during new-account creation; existing-account sign-in requires confirmation before replacing device records.
+- Provide bottom navigation, a slide-out sidebar, System/Light/Dark themes, and recorded-spending charts in Monitor.
 - Enforce authorization on the backend for every user-owned resource.
 - Validate incoming data on the server.
 - Prevent users from accessing another user's financial records.
@@ -129,3 +131,23 @@ retention/deletion decisions, physical-device verification, and disposition of t
 remaining Zod advisory. Forge was updated through its supported range to 1.4.1.
 The application is not declared production-ready or security-cleared. No public
 release, deployment, commit, staging or push is authorized by this progress record.
+
+### Navigation and device-only upgrade
+
+Owner-approved addition: device-only SQLite records, shared financial rules,
+new-account transfer with retry receipts, explicit existing-account replacement,
+bottom navigation/sidebar, System/Light/Dark appearance, and recorded-spending
+charts. It does not add bank integrations, investment management, automatic merges,
+or offline cloud writes. Verification results and remaining device/release gates
+must be reported separately; earlier build evidence does not verify this upgrade.
+
+Verification on 2026-10-28: strict clean install preserved the lockfile; lint,
+strict types, API/domain tests and mobile/storage tests passed. Eight isolated
+MongoDB integration cases passed during this upgrade, including authenticated,
+new-account-only import and concurrent retry protection. Android export, native
+arm64 release-variant build and emulator checks covered local records, charts,
+the sidebar, appearance changes and persistence after restart. No physical-device
+or iOS verification is claimed. The local APK uses development signing and a
+non-live HTTPS example endpoint, and is not a production distribution artifact.
+The current dependency audit remains open: three high and 13 low package entries;
+see Architecture's advisory section. No commit or push was performed.

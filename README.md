@@ -15,7 +15,9 @@ Instead of focusing only on past spending, Spendwise aims to make irregular inco
 - **Expected income** — Track client payments that are due or anticipated.
 - **Upcoming expenses** — Keep future financial commitments visible.
 - **Cash-flow forecasting** — Explore projected balances using clearly stated assumptions.
-- **Privacy-conscious design** — Keep user-owned financial records protected through backend authorization.
+- **Device-only or cloud use** — Start without registration; create an account to transfer device records, or explicitly replace them when signing into an existing account.
+- **Monitor and appearance** — Recorded spending charts, bottom navigation, a sidebar, and System/Light/Dark themes.
+- **Privacy-conscious design** — Device-only records stay in private app storage; cloud records are protected through backend authorization.
 
 ## Technology Stack
 
@@ -118,9 +120,42 @@ The mobile development default is `http://127.0.0.1:3000`. An optional
 `EXPO_PUBLIC_API_URL` supplies the API address; this is public configuration, never
 a place for secrets. Release JavaScript refuses a missing/non-HTTPS API URL.
 Android backup is disabled and unused storage/audio/overlay/vibration permissions
-are blocked in Expo configuration. SecureStore holds only the session credential. Financial state is held in memory,
-not persisted as an offline cache, and cleared at logout. Offline logout warns if
+are blocked in Expo configuration. SecureStore holds only the session credential. Cloud financial state is held in memory,
+not persisted as an offline cache, and cleared at logout. Device-only records are
+persisted separately in private SQLite storage. Offline logout warns if
 server revocation could not be confirmed.
+
+### Device-only mode and navigation
+
+Choose **Continue without an account** to use the app without the API or an internet
+connection. Configure an opening balance, then record transactions and expected
+payments. Records persist across app restarts in private SQLite storage. Removing
+the app or clearing its data can erase them; there is no cloud recovery for local
+mode. Android backup remains disabled. Do not promise a platform-independent
+forensic erase or backup guarantee; iOS/physical-device behavior still needs review.
+
+The fixed bottom tabs are Overview, Transactions, Upcoming and Monitor. The menu
+button opens a sidebar with Forecast, Account, account connection/sign-out, and
+Follow device/Light/Dark appearance settings. Follow device is the default.
+Monitor shows six monthly income/expense columns and category spending bars with
+text values; it excludes opening balances and expected payments. Select its month
+in Overview. Forecast remains separately labeled as projected, never guaranteed.
+
+From the sidebar, **Create account or sign in** offers two distinct paths:
+
+- New account: create and verify the account, then sign in with those credentials.
+  Local records transfer only to the new account associated with that registration.
+  Transfer progress survives restart; retries cannot duplicate or overwrite cloud
+  records. After an upload attempt, local editing is locked until the transfer is
+  completed (or the owner confirms replacement by an existing cloud account).
+- Existing account: explicitly confirm replacement before authentication. Local
+  records are cleared only after authentication, successful cloud loading, and
+  credential persistence. Cancellation or a failed load preserves local records.
+  There is no automatic merging.
+
+Cloud changes require a connection. Signing out clears access to the cloud account
+and offers a fresh local session or another sign-in. A local transfer is never an
+implicit background upload. No real email delivery is claimed by these flows.
 
 ### Database isolation and verification
 
@@ -159,6 +194,12 @@ Public auth endpoints: `/auth/register`, `/auth/request-verification`, `/auth/ve
 return a generic HTTP 202 response. Login intentionally issues a session token
 only after verified credentials. Protected endpoints require an Authorization Bearer
 header: GET/POST `/account`, POST `/account/operations`, `/auth/logout`, `/auth/password`.
+Authenticated POST `/account/import` accepts a validated device ledger only with
+the capability attached to its new-account registration. It atomically initializes
+an empty ledger and stores a payload receipt for idempotent retries. An existing
+ledger is never overwritten, even if the original import is retried after edits.
+This route alone has an 8 MiB JSON limit after authentication/rate limiting; ordinary
+requests retain the 16 KiB limit. The existing 5,000-record bound still applies.
 No cookie authentication or browser CORS access is enabled. Authentication is limited
 to 30 requests per source address and 10 per email identifier per 15-minute window;
 private account requests are limited to 120 per minute per user. Authenticated logout

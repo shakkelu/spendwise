@@ -8,7 +8,7 @@ import {
   type Ledger,
   type Currency,
 } from "./api";
-import { Button, Card, Field, s } from "./ui";
+import { Button, Card, Field, useTheme } from "./ui";
 export function SettingsForm({
   ledger,
   busy,
@@ -18,6 +18,7 @@ export function SettingsForm({
   busy: boolean;
   save: (body: Record<string, unknown>) => Promise<void>;
 }) {
+  const { s } = useTheme();
   const [currency, setCurrency] = useState<Currency>(ledger?.currency ?? "USD"),
     [timezone, setTimezone] = useState(ledger?.timezone ?? "UTC"),
     [amount, setAmount] = useState(
@@ -106,6 +107,7 @@ export function EntryForm({
   save: (body: Record<string, unknown>) => Promise<void>;
   cancel: () => void;
 }) {
+  const { s } = useTheme();
   const [id] = useState(record?.id ?? randomUUID()),
     [type, setType] = useState(record?.type ?? "expense"),
     [amount, setAmount] = useState(
@@ -200,6 +202,7 @@ export function SettlementForm({
   save: (body: Record<string, unknown>) => Promise<void>;
   cancel: () => void;
 }) {
+  const { s } = useTheme();
   const [day, setDay] = useState(asOf),
     [transactionId] = useState(randomUUID());
   return (

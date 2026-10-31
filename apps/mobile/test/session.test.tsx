@@ -8,6 +8,28 @@ import {
 import App from "../App";
 import * as SecureStore from "expo-secure-store";
 import { request, RequestError } from "../src/api";
+jest.mock("../src/storage", () => ({
+  emptyDevice: () => ({
+    schema: 1,
+    revision: 0,
+    guest: false,
+    ledger: null,
+    signup: null,
+  }),
+  readDevice: jest.fn(async () => ({
+    schema: 1,
+    revision: 0,
+    guest: false,
+    ledger: null,
+    signup: null,
+  })),
+  writeDevice: jest.fn(async (previous: object, changes: object) => ({
+    ...previous,
+    ...changes,
+  })),
+  readAppearance: jest.fn(async () => "system"),
+  writeAppearance: jest.fn(async () => {}),
+}));
 jest.mock(
   "react-native-safe-area-context",
   () =>
@@ -48,6 +70,7 @@ test("offline logout clears the device credential and reports unconfirmed revoca
   render(<App />);
   await screen.findByText("Opening balance & account");
   jest.mocked(request).mockRejectedValueOnce(new Error("Offline"));
+  fireEvent.press(screen.getByRole("button", { name: "☰ Menu" }));
   fireEvent.press(screen.getByRole("button", { name: "Sign out" }));
   await screen.findByText(/Server revocation could not be confirmed/);
   await waitFor(() => expect(SecureStore.deleteItemAsync).toHaveBeenCalled());
@@ -66,6 +89,7 @@ test("credential-removal failure remains visible and can be retried", async () =
   render(<App />);
   await screen.findByText("Opening balance & account");
   jest.mocked(request).mockResolvedValueOnce(null);
+  fireEvent.press(screen.getByRole("button", { name: "☰ Menu" }));
   fireEvent.press(screen.getByRole("button", { name: "Sign out" }));
   await screen.findByText(/Local credential removal failed/);
   expect(screen.queryByText("Opening balance & account")).toBeNull();

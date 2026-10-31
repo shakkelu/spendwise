@@ -8,6 +8,28 @@ import {
 import { AuthView } from "../src/AuthView";
 import { SettingsForm, EntryForm } from "../src/forms";
 import { decimal, request } from "../src/api";
+jest.mock("../src/storage", () => ({
+  emptyDevice: () => ({
+    schema: 1,
+    revision: 0,
+    guest: false,
+    ledger: null,
+    signup: null,
+  }),
+  readDevice: jest.fn(async () => ({
+    schema: 1,
+    revision: 0,
+    guest: false,
+    ledger: null,
+    signup: null,
+  })),
+  writeDevice: jest.fn(async (previous: object, changes: object) => ({
+    ...previous,
+    ...changes,
+  })),
+  readAppearance: jest.fn(async () => "system"),
+  writeAppearance: jest.fn(async () => {}),
+}));
 jest.mock("expo-crypto", () => ({
   randomUUID: () => "00000000-0000-4000-8000-000000000001",
 }));

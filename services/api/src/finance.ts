@@ -1,4 +1,4 @@
-import { ApiError, object, text } from "./errors.js";
+import { ApiError, object, text } from "./errors.ts";
 
 export const precision = {
   USD: 2,
@@ -156,7 +156,11 @@ export function mutateLedger(
   now = new Date(),
 ): Ledger {
   const input = object(value);
-  const result = structuredClone(current);
+  const result: Ledger = {
+    ...current,
+    transactions: current.transactions.map((x) => ({ ...x })),
+    expectations: current.expectations.map((x) => ({ ...x })),
+  };
   const id = input.action === "settings" ? "" : identifier(input.id);
   const tx = result.transactions.find((x) => x.id === id);
   const expected = result.expectations.find((x) => x.id === id);
@@ -335,4 +339,81 @@ export function overview(ledger: Ledger, month: string, now = new Date()) {
     assumptions:
       "90-day projection, not guaranteed. Overdue income is excluded; overdue expenses reduce today. Actual transactions already reflected in the opening balance must not be entered again.",
   };
+}
+
+// The same pure validation/calculation module runs on device and on the server.
+// Rebuild imports from validated fields; never trust persisted/client totals.
+export function validateLedger(value: unknown, now = new Date()): Ledger {
+  const input = object(value);
+  if (
+    typeof input.currency !== "string" ||
+    !Object.hasOwn(precision, input.currency)
+  )
+    return fail("Unsupported currency.");
+  const currency = input.currency as Currency;
+  const decimal = (value: unknown, signed = false) => {
+    if (
+      !Number.isSafeInteger(value) ||
+      Math.abs(Number(value)) > LIMIT ||
+      (!signed && Number(value) <= 0)
+    )
+      return fail("Invalid stored amount.");
+    const n = Number(value),
+      digits = precision[currency];
+    const raw = Math.abs(n)
+      .toString()
+      .padStart(digits + 1, "0");
+    return `${n < 0 ? "-" : ""}${digits ? `${raw.slice(0, -digits)}.${raw.slice(-digits)}` : raw}`;
+  };
+  const ledger = createLedger(
+    { ...input, openingAmount: decimal(input.openingAmount, true) },
+    now,
+  );
+  if (
+    !Array.isArray(input.transactions) ||
+    !Array.isArray(input.expectations) ||
+    input.transactions.length + input.expectations.length > 5000 ||
+    !Number.isSafeInteger(input.version) ||
+    Number(input.version) < 0
+  )
+    return fail("Invalid or oversized ledger.");
+  const ids = new Set<string>();
+  const parse = (value: unknown, actual: boolean) => {
+    const b = object(value);
+    const result = entry(
+      { ...b, amount: decimal(b.amount) },
+      ledger,
+      actual,
+      now,
+    );
+    if (ids.has(result.id)) return fail("Duplicate record ID.");
+    ids.add(result.id);
+    return result;
+  };
+  ledger.transactions = input.transactions.map((x) => parse(x, true));
+  const links = new Set<string>();
+  ledger.expectations = input.expectations.map((value) => {
+    const b = object(value),
+      result = parse(value, false);
+    if (
+      b.status !== "pending" &&
+      b.status !== "cancelled" &&
+      b.status !== "settled"
+    )
+      return fail("Invalid payment status.");
+    if (b.status !== "settled") {
+      if (b.transactionId !== undefined)
+        return fail("Unexpected settlement link.");
+      return { ...result, status: b.status };
+    }
+    const transactionId = identifier(b.transactionId);
+    const tx = ledger.transactions.find((x) => x.id === transactionId);
+    if (!tx || tx.type !== result.type || links.has(transactionId))
+      return fail("Invalid settlement link.");
+    links.add(transactionId);
+    return { ...result, status: b.status, transactionId };
+  });
+  ledger.version = Number(input.version);
+  overview(ledger, today(ledger.timezone, now).slice(0, 7), now);
+  return ledger;
 }

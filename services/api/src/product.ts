@@ -1,9 +1,16 @@
-import { Router } from "express";
+import { createHash } from "node:crypto";
+import { Router, json } from "express";
 import type { Db } from "mongodb";
 import { accounts, throttle, type Deliver, type User } from "./accounts.js";
 import { ApiError, object } from "./errors.js";
-import { createLedger, mutateLedger, overview, today } from "./finance.js";
-import { requireSession, type Session } from "./sessions.js";
+import {
+  createLedger,
+  mutateLedger,
+  overview,
+  today,
+  validateLedger,
+} from "./finance.js";
+import { requireSession, tokenHash, type Session } from "./sessions.js";
 import { rateLimit } from "./limits.js";
 
 export async function product(db: Db, deliver: Deliver, rateScope = "") {
@@ -27,7 +34,7 @@ export async function product(db: Db, deliver: Deliver, rateScope = "") {
   });
   router.post("/auth/register", async (req, res) => {
     const b = object(req.body);
-    await auth.register(b.email, b.password);
+    await auth.register(b.email, b.password, b.transferKey);
     res.status(202).json(generic);
   });
   router.post("/auth/request-verification", async (req, res) => {
@@ -119,6 +126,62 @@ export async function product(db: Db, deliver: Deliver, rateScope = "") {
       );
     res.status(201).json({ ledger });
   });
+  router.post(
+    "/account/import",
+    json({ limit: "8mb", strict: true }),
+    async (req, res) => {
+      const b = object(req.body);
+      if (typeof b.key !== "string" || !/^[a-f0-9]{64}$/.test(b.key))
+        throw new ApiError(400, "Invalid transfer key.");
+      const ledger = validateLedger(b.ledger);
+      const receipt = createHash("sha256")
+        .update(JSON.stringify(ledger))
+        .digest("hex");
+      const session = res.locals.session as Session;
+      const owner = {
+        _id: session.userId,
+        authVersion: session.authVersion,
+        verified: true,
+      };
+      const user = await users.findOne(owner);
+      if (!user || user.transferHash !== tokenHash(b.key))
+        throw new ApiError(
+          409,
+          "Local transfer is only available for the new account created on this device. Local records have been kept.",
+        );
+      if (user.transferReceipt === receipt) {
+        res.json({ imported: true });
+        return;
+      }
+      if (user.ledger || user.transferReceipt)
+        throw new ApiError(
+          409,
+          "Cloud account already contains records. Local records have been kept.",
+        );
+      const updated = await users.updateOne(
+        {
+          ...owner,
+          transferHash: tokenHash(b.key),
+          ledger: null,
+          transferReceipt: { $exists: false },
+        },
+        { $set: { ledger, transferReceipt: receipt } },
+      );
+      if (!updated.modifiedCount) {
+        const retry = await users.findOne({
+          ...owner,
+          transferHash: tokenHash(b.key),
+          transferReceipt: receipt,
+        });
+        if (!retry)
+          throw new ApiError(
+            409,
+            "Account changed. Local records have been kept; retry after signing in.",
+          );
+      }
+      res.json({ imported: true });
+    },
+  );
   router.post("/account/operations", async (req, res) => {
     const session = res.locals.session as Session;
     const id = session.userId;

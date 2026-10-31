@@ -26,7 +26,13 @@ export function createApp(routes?: Router, production = false) {
       return next(new ApiError(400, "HTTPS is required."));
     next();
   });
-  app.use(express.json({ limit: "16kb", strict: true }));
+  const json = express.json({ limit: "16kb", strict: true });
+  // The import parser runs only AFTER authentication, with its own bounded limit.
+  app.use((req, res, next) =>
+    req.path === "/account/import" && req.method === "POST"
+      ? next()
+      : json(req, res, next),
+  );
   if (routes) app.use(routes);
 
   app.use((_request, response) => {

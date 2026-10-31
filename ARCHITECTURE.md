@@ -4,7 +4,7 @@
 
 This document defines Spendwise’s system design and required behavior; it does not establish implementation completion or production readiness. See README.md and PROJECT_PLAN.md for verified status and limitations. The design consists of a mobile client, a backend API, and a MongoDB database.
 
-The mobile app handles the user interface and user interactions. The backend handles authentication, authorization, business rules, financial calculations, and data validation. MongoDB stores application data.
+The mobile app handles presentation and device-only storage. Cloud mode uses the backend for authentication, authorization, financial operations and validation, with MongoDB persistence. Device-only mode runs the same pure financial validation/calculation module against private SQLite storage; it never connects to MongoDB or uploads financial records implicitly.
 
 ## 2. System Components
 
@@ -63,11 +63,54 @@ The mobile app must not connect directly to MongoDB.
 
 ## 4. Data Ownership and Authorization
 
-- Every private financial record must belong to a specific user.
+- Every cloud financial record must belong to an authenticated user. Device-only records belong to the local app installation.
 - The backend must derive the authenticated user identity from a verified authentication context.
 - The backend must never trust a client-supplied user ID as proof of ownership.
 - Database queries and updates must enforce user ownership.
 - Authentication and authorization must be tested independently.
+
+### Device-only storage and account transitions
+
+Approved by the owner for the navigation/local-mode upgrade. System/Light/Dark
+appearance preferences are device settings. Cloud ledgers are memory-only and
+require a connection for writes; device-only ledgers persist in private SQLite.
+SQLite uses atomic writes with revision checks; a storage error must never reset
+or silently discard records. Android backup stays disabled. Local mode has no
+cloud recovery; uninstall/data clearing may lose its records.
+
+The pure `services/api/src/finance.ts` module (and its pure error helpers) is
+imported by both mobile and API; it has no server, database or native dependencies.
+The API still independently validates every request. Mobile imports must never
+reach authentication, database, SMTP or other server-only modules. Native bundle
+verification is required when this boundary changes.
+
+A new-account registration may attach a random transfer capability. The server
+stores its hash only on an unverified registration; registering an existing
+verified address cannot enable import. The device stores its pending email/key
+and, when uploading begins, an immutable ledger snapshot. This capability alone
+cannot authenticate: import also requires the verified account's valid session.
+Registration and email responses remain generic. Duplicate unverified registration
+continues to replace the candidate password/verification token safely.
+
+The authenticated import route rebuilds and validates all financial records,
+IDs, settlement links, dates, currency precision and bounds. Its 8 MiB JSON parser
+runs after authentication/rate limiting (all other routes retain 16 KiB). It
+atomically writes only an empty ledger and stores a SHA-256 receipt. Identical
+retries return success without writing again, even after subsequent cloud edits;
+changed payloads or other accounts cannot overwrite a ledger.
+
+After an upload attempt, device edits are locked to preserve a retryable snapshot.
+Local records are removed only after import confirmation (for signup), cloud load,
+and successful SecureStore session persistence. If a crash leaves both a session
+and guest records, startup clears that session credential and requires sign-in to
+resume; it never silently discards guest records. SQL cleanup failure preserves
+local records and triggers credential removal; removal failures require a retry.
+
+Existing-account sign-in asks for explicit replacement confirmation before the
+login request, loads the cloud account, then clears the device ledger/pending
+transfer. It never merges histories or transfers local data into an existing
+account. Sign-out clears cloud state and offers fresh local use. Guest navigation,
+financial operations and charts work without an API connection.
 
 ## 5. Financial Data Rules
 
@@ -152,14 +195,28 @@ tuning and recovery verification remain release gates.
 
 ### Dependency advisories — release readiness
 
-Reassessed 2026-10-27. The original audit had five high-severity package entries
+Reassessed 2026-10-28. The original audit had five high-severity package entries
 from two underlying advisories. The current audit has three high-severity entries
-from one remaining advisory; this is not a whole-project security clearance.
+associated with Zod and 13 low-severity entries associated with deepmerge (16 total
+package entries, two open underlying advisories). This is not a whole-project
+security clearance. The deepmerge version is unchanged from the previous lockfile;
+its advisory is newly reported by this audit, not a new direct dependency.
 
 | Advisory                                                                             | Current state                                            | Evidence and release condition                                                                                                                                                                                                                                                                                                         |
 | ------------------------------------------------------------------------------------ | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [GHSA-86w9-cpqp-85rv](https://github.com/advisories/GHSA-86w9-cpqp-85rv), node-forge | Remediated in the locked tree by `node-forge@1.4.1`      | Official [1.4.1 changelog](https://github.com/digitalbazaar/forge/blob/v1.4.1/CHANGELOG.md) identifies the signature-verification fix. The patch satisfies both Expo dependencies' existing `^1.3.3` ranges. No overrides, framework downgrade, or force fix was used. Repeat compatibility/export/signing checks with future updates. |
 | [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5), zod        | OPEN: `zod@3.25.76`, inherited by `@expo/cli` and `expo` | Current CLI requires the v3 range. The advisory's v4 fix is not a compatible patch. Reassess supported Expo remediation and CLI input reachability before release. No forced major override or downgrade is accepted.                                                                                                                  |
+
+The newly reported low-severity [GHSA-gcqx-w48m-w2h4](https://github.com/advisories/GHSA-gcqx-w48m-w2h4)
+affects locked `deepmerge@4.3.1` through Expo/Jest tooling. The advisory describes
+prototype poisoning of returned merged objects and lists no patched version.
+Track supported upstream remediation and input reachability before release; do
+not force framework downgrades or treat an audit count as proof of exploitability.
+The earlier artifact review below did not establish deepmerge's reachability.
+The 2026-10-28 Android export map (632 sources) contains only the pure finance
+and error helpers from API source, and no MongoDB, Argon2, Nodemailer, deepmerge,
+node-forge or Zod modules. This is evidence for that export, not proof that
+development tooling is unaffected or that the whole project is security-cleared.
 
 The Android export source map inspected during implementation did not list
 node-forge or zod modules. It did list Expo's Metro require helper under the CLI
@@ -180,6 +237,6 @@ reported separately from the complete workspace audit.
 - Before public release: Verify production email delivery/recovery, TLS/proxy configuration, abuse limits and the authentication policy in section 6.
 - Before public deployment: Select hosting, a verified HTTPS API endpoint, signing identity/package ownership and network/proxy configuration. The established local runtime, workspaces, database and adb connectivity are documented in README.md.
 - Before public operations: Tune abuse limits and monitoring, verify external email delivery/recovery and assess durable delivery/retry requirements. API error conventions, isolated tests and duplicate/stale-write handling are implemented and documented in README.md.
-- Before accepting real financial data: Document mobile caching and logout cleanup, data retention/deletion, protected backups, and restore verification. Identify targeted ignore rules when credential, signing, or database-export tooling is selected.
+- Before accepting real financial data: Verify the documented device storage/account-transition and logout cleanup behavior on physical devices; decide data retention/deletion, protected backups, and restore verification. Identify targeted ignore rules when credential, signing, or database-export tooling is selected.
 
 Hosting, release automation, and automated mobile end-to-end tooling can be decided later.

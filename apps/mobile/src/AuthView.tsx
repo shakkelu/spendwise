@@ -1,41 +1,67 @@
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { request } from "./api";
-import { Button, Card, Field, s } from "./ui";
+import { Button, Card, Field, useTheme } from "./ui";
 type Mode = "login" | "register" | "verify" | "recover" | "reset";
 export function AuthView({
   onLogin,
+  signupEmail,
+  prepareSignup,
+  beforeLogin,
+  onBusyChange,
 }: {
-  onLogin: (token: string) => Promise<void>;
+  onLogin: (token: string, email?: string, transfer?: boolean) => Promise<void>;
+  onBusyChange?: (busy: boolean) => void;
+  signupEmail?: string;
+  prepareSignup?: (email: string) => Promise<string | undefined>;
+  beforeLogin?: (transfer: boolean) => Promise<boolean>;
 }) {
+  const { s } = useTheme();
   const [mode, setMode] = useState<Mode>("login"),
-    [email, setEmail] = useState(""),
+    [email, setEmail] = useState(signupEmail ?? ""),
     [password, setPassword] = useState(""),
     [code, setCode] = useState(""),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState("");
+  const [joining, setJoining] = useState(!!signupEmail);
   const change = (next: Mode) => {
     setMode(next);
+    if (next === "register") setJoining(true);
     setPassword("");
     setCode("");
     setNotice("");
   };
   async function submit() {
+    if (busy) return;
     setBusy(true);
+    onBusyChange?.(true);
     setNotice("");
     try {
       if (mode === "login") {
+        if (beforeLogin && !(await beforeLogin(joining))) return;
         const result = await request<{ token: string }>("/auth/login", null, {
           email,
           password,
         });
-        await onLogin(result.token);
+        if (beforeLogin) await onLogin(result.token, email, joining);
+        else await onLogin(result.token);
       } else {
+        const transferKey =
+          mode === "register"
+            ? await prepareSignup?.(email.trim().toLowerCase())
+            : undefined;
         const result = await request<{ message: string }>(
           `/auth/${mode}`,
           null,
-          { email, password, token: code },
+          {
+            email,
+            password,
+            token: code,
+            ...(transferKey ? { transferKey } : {}),
+          },
         );
+        if (mode === "register") setMode("verify");
+        if (mode === "verify") setMode("login");
         setNotice(result.message);
       }
       setPassword("");
@@ -44,6 +70,7 @@ export function AuthView({
       setNotice(e instanceof Error ? e.message : "Please try again.");
     } finally {
       setBusy(false);
+      onBusyChange?.(false);
     }
   }
   const titles = {
@@ -59,6 +86,24 @@ export function AuthView({
       <Text style={s.subtitle}>
         A clear view of what you have, what’s due, and what might come next.
       </Text>
+      {prepareSignup && (
+        <Text style={s.subtitle}>
+          {joining
+            ? "New account: verify your email, then sign in to transfer your device records. They stay on this device until transfer succeeds."
+            : "Existing account: signing in replaces device records only after your confirmation and a successful cloud load."}
+        </Text>
+      )}
+      {prepareSignup && joining && (
+        <Button
+          secondary
+          title="Use an existing account instead"
+          disabled={busy}
+          onPress={() => {
+            setJoining(false);
+            change("login");
+          }}
+        />
+      )}
       <Card>
         {["login", "register", "recover"].includes(mode) && (
           <Field

@@ -1,34 +1,17 @@
-export type Kind = "income" | "expense";
-export type Currency = "USD" | "EUR" | "GBP" | "INR" | "JPY" | "KWD";
-export const precision: Record<Currency, number> = {
-  USD: 2,
-  EUR: 2,
-  GBP: 2,
-  INR: 2,
-  JPY: 0,
-  KWD: 3,
-};
-export interface Entry {
-  id: string;
-  type: Kind;
-  amount: number;
-  date: string;
-  category: string;
-  description: string;
-}
-export interface Expected extends Entry {
-  status: "pending" | "cancelled" | "settled";
-  transactionId?: string;
-}
-export interface Ledger {
-  version: number;
-  currency: Currency;
-  timezone: string;
-  openingAmount: number;
-  openingDate: string;
-  transactions: Entry[];
-  expectations: Expected[];
-}
+export { precision } from "../../../services/api/src/finance";
+import { precision } from "../../../services/api/src/finance";
+import type {
+  Currency,
+  Ledger,
+  Expected,
+} from "../../../services/api/src/finance";
+export type {
+  Kind,
+  Currency,
+  Entry,
+  Expected,
+  Ledger,
+} from "../../../services/api/src/finance";
 export interface Snapshot {
   email: string;
   ledger: Ledger | null;
